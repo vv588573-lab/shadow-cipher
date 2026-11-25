@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHADOW CIPHER — HTML Encryptor</title>
+<meta name="description" content="Encrypt & decrypt HTML entirely in your browser. No server. Offline. Zero telemetry.">
+<style>
+  :root{
+    --bg:#0a0a12; --card:#12121f; --line:#23233a; --txt:#e8e8f2; --dim:#8a8aa8;
+    --mag:#ff2fd6; --cyan:#22e0ff; --grn:#2bffa5; --red:#ff5470;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%,#1c0f33 0%,transparent 60%),
+               radial-gradient(900px 500px at -10% 30%,#08222b 0%,transparent 55%),var(--bg);
+    color:var(--txt);font-family:ui-monospace,"Cascadia Code",Menlo,Consolas,monospace;
+    min-height:100vh;padding:26px 16px 40px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .logo{font-size:26px;font-weight:800;letter-spacing:3px;
+    background:linear-gradient(90deg,var(--mag),var(--cyan));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .logo b{color:#fff;-webkit-text-fill-color:#fff}
+  .tag{color:var(--dim);font-size:13px;width:100%;margin-bottom:14px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .badge{font-size:11px;color:var(--grn);border:1px solid #1d4a38;background:#0c1f18;
+    padding:4px 10px;border-radius:99px}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:0 0 auto;padding:10px 22px;border:1px solid var(--line);border-radius:10px;
+    background:var(--card);color:var(--dim);cursor:pointer;font:inherit;font-size:14px;letter-spacing:1px}
+  .tab.on{color:#fff;border-color:var(--mag);box-shadow:0 0 18px #ff2fd633;background:#1a0f22}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .panel h3{font-size:12px;color:var(--cyan);letter-spacing:2px;margin-bottom:10px;text-transform:uppercase}
+  textarea{width:100%;min-height:220px;background:#0a0a14;color:#c9f5ff;border:1px solid var(--line);
+    border-radius:10px;padding:12px;font:inherit;font-size:13px;resize:vertical;outline:none}
+  textarea:focus{border-color:var(--cyan)}
+  textarea.ro{color:#d7c9ff;background:#0d0a16}
+  .row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  input[type=password],input[type=text]{flex:1;min-width:160px;background:#0a0a14;color:var(--txt);
+    border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px;outline:none}
+  input:focus{border-color:var(--mag)}
+  button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.5px;border:none;cursor:pointer;
+    border-radius:10px;padding:11px 18px;background:#22223a;color:var(--txt)}
+  button:hover{filter:brightness(1.15)}
+  button.primary{background:linear-gradient(90deg,var(--mag),#b400ff);color:#fff;flex:1}
+  button.ghost{border:1px solid var(--line);background:transparent;color:var(--dim)}
+  button.ok{background:#123528;color:var(--grn);border:1px solid #1d4a38}
+  .meta{display:flex;justify-content:space-between;color:var(--dim);font-size:11px;margin-top:8px}
+  .status{margin-top:12px;font-size:13px;min-height:20px;color:var(--dim)}
+  .status.good{color:var(--grn)} .status.bad{color:var(--red)} .status.busy{color:var(--cyan)}
+  .hidden{display:none}
+  footer{margin-top:26px;text-align:center;color:#55557a;font-size:12px;line-height:1.7}
+  footer b{color:var(--dim)}
+  .shake{animation:shk .4s}@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">SHADOW<b>CIPHER</b></div>
+    <div class="badges">
+      <span class="badge">● NO SERVER</span>
+      <span class="badge">● RUNS OFFLINE</span>
+      <span class="badge">● ZERO TELEMETRY</span>
+    </div>
+    <div class="tag">Apna HTML lock karo — password se encrypt, browser me hi. Decrypt bhi yahin. Koi data kahin nahi jaata.</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on" id="tabE" onclick="showTab('E')">🔒 ENCRYPT</button>
+    <button class="tab" id="tabD" onclick="showTab('D')">🔓 DECRYPT</button>
+  </div>
+
+  <!-- ═══ ENCRYPT ═══ -->
+  <div id="paneE">
+    <div class="grid">
+      <div class="panel">
+        <h3>Source — HTML Input</h3>
+        <textarea id="src" placeholder="Paste your HTML here… ya Upload file (upar)"></textarea>
+        <div class="row">
+          <button class="ghost" onclick="document.getElementById('file').click()">⬆ Upload .html</button>
+          <input type="file" id="file" accept=".html,.htm,text/html" class="hidden" onchange="loadFile(this)">
+        </div>
+        <div class="meta"><span id="srcMeta">0 chars</span><span>source.html</span></div>
+      </div>
+      <div class="panel">
+        <h3>Encrypted — HTML Output (self-decoding)</h3>
+        <textarea id="enc" class="ro" readonly placeholder="…awaiting input"></textarea>
+        <div class="row">
+          <button class="ghost" onclick="copyOut('enc',this)">📋 Copy</button>
+          <button class="ghost" onclick="downloadOut('enc','encrypted.html')">⬇ Download</button>
+        </div>
+        <div class="meta"><span id="encMeta">0 chars</span><span>encrypted.html</span></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <div class="row" style="margin-top:0">
+        <input type="password" id="pwE" placeholder="Password (yaad rakho — bhool gaye to HTML wapas nahi)" onkeydown="if(event.key==='Enter')runEnc()">
+        <button class="primary" onclick="runEnc()">⚡ RUN ENCRYPTION &nbsp;⌘/Ctrl+↵</button>
+      </div>
+      <div class="status" id="stE">password dalo aur Run karo — output ek aisa HTML banega jo sirf sahi password se khulega</div>
+    </div>
+  </div>
+
+  <!-- ═══ DECRYPT ═══ -->
+  <div id="paneD" class="hidden">
+    <div class="grid">
+      <div class="panel">
+        <h3>Encrypted — HTML Input</h3>
+        <textarea id="encIn" placeholder="Paste encrypted.html ka content yahan…"></textarea>
+        <div class="row">
+          <button class="ghost" onclick="document.getElementById('fileD').click()">⬆ Upload file</button>
+          <input type="file" id="fileD" accept=".html,.htm,text/html" class="hidden" onchange="loadFile(this,'encIn')">
+        </div>
+        <div class="meta"><span id="encInMeta">0 chars</span><span>encrypted.html</span></div>
+      </div>
+      <div class="panel">
+        <h3>Decrypted — Original HTML</h3>
+        <textarea id="dec" class="ro" readonly placeholder="…original HTML yahan aayega"></textarea>
+        <div class="row">
+          <button class="ghost" onclick="copyOut('dec',this)">📋 Copy</button>
+          <button class="ghost" onclick="downloadOut('dec','source.html')">⬇ Download</button>
+        </div>
+        <div class="meta"><span id="decMeta">0 chars</span><span>source.html</span></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <div class="row" style="margin-top:0">
+        <input type="password" id="pwD" placeholder="Wahi password jo encrypt me tha" onkeydown="if(event.key==='Enter')runDec()">
+        <button class="primary" onclick="runDec()">🔓 DECRYPT &nbsp;⌘/Ctrl+↵</button>
+      </div>
+      <div class="status" id="stD">encrypted file paste karo + password → original HTML wapas</div>
+    </div>
+  </div>
+
+  <footer>
+    <b>SHADOW CIPHER v1.0</b> — XOR stream + PBKDF (SHA-256) + seeded shuffle + unicode disguise<br>
+    Pure client-side · koi server nahi · koi analytics nahi · sab kuch aapke browser me
+  </footer>
+</div>
+
+<script>
+//==CORE_START==
+/* ── SHA-256 (pure JS, offline) ── */
+const SC_K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+function scSha(b){const H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const l=b.length,bit=l*8,pad=Math.ceil((l+9)/64)*64,m=new Uint8Array(pad);
+  m.set(b);m[l]=0x80;const dv=new DataView(m.buffer);dv.setUint32(pad-8,Math.floor(bit/4294967296));dv.setUint32(pad-4,bit>>>0);
+  const w=new Uint32Array(64);
+  for(let i=0;i<pad;i+=64){for(let j=0;j<16;j++)w[j]=dv.getUint32(i+j*4);
+    for(let j=16;j<64;j++){const a=w[j-15],b2=w[j-2],s0=((a>>>7)|(a<<25))^((a>>>18)|(a<<14))^(a>>>3),
+      s1=((b2>>>17)|(b2<<15))^((b2>>>19)|(b2<<13))^(b2>>>10);w[j]=(w[j-16]+s0+w[j-7]+s1)>>>0;}
+    let [a,b2,c,d,e,f,g,h]=H;
+    for(let j=0;j<64;j++){const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7)),
+      ch=(e&f)^(~e&g),t1=(h+S1+ch+SC_K[j]+w[j])>>>0,
+      S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10)),
+      maj=(a&b2)^(a&c)^(b2&c),t2=(S0+maj)>>>0;
+      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b2;b2=a;a=(t1+t2)>>>0;}
+    H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b2)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;
+    H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;}
+  const o=new Uint8Array(32);const odv=new DataView(o.buffer);
+  for(let i=0;i<8;i++)odv.setUint32(i*4,H[i]);return o;}
+const scT=new TextEncoder(),scTD=new TextDecoder();
+function scConcat(...arrs){let n=0;for(const a of arrs)n+=a.length;const o=new Uint8Array(n);let p=0;
+  for(const a of arrs){o.set(a,p);p+=a.length;}return o;}
+function scB64(u){let s="";for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s);}
+function scUnb64(s){const x=atob(s),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);return u;}
+/* KDF: iterated SHA-256 (PBKDF-style) */
+function scKdf(pw,salt,rounds){
+  let h=scConcat(scT.encode(pw),salt);
+  h=scSha(h);
+  const s=scSha(salt);
+  for(let i=0;i<rounds;i++){h=scSha(scConcat(h,s,new Uint8Array([i&255,(i>>>8)&255,(i>>>16)&255,(i>>>24)&255])));}
+  return h;}
+/* XOR stream: ks_block = SHA256(key||iv||counter) */
+function scXor(key,iv,data){
+  const out=new Uint8Array(data.length);let off=0,ctr=0;
+  while(off<data.length){
+    const k=scSha(scConcat(key,iv,new Uint8Array([ctr&255,(ctr>>>8)&255,(ctr>>>16)&255,(ctr>>>24)&255])));
+    const n=Math.min(32,data.length-off);
+    for(let i=0;i<n;i++)out[off+i]=data[off+i]^k[i];
+    off+=n;ctr++;}
+  return out;}
+function scTag(key,ct){return scSha(scConcat(key,scT.encode("SCv1TAG"),ct)).slice(0,16);}
+/* seeded PRNG + Fisher-Yates (reversible with same seed) */
+function scSeed(str){const h=scSha(scT.encode(str));return (h[0]|h[1]<<8|h[2]<<16|h[3]<<24)>>>0;}
+function scRng(seed){let a=seed>>>0;return function(){a=(a+0x6d2b79f5)>>>0;let t=a;
+  t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0);};}
+function scShuffle(arr,seed){const r=scRng(seed),sw=[];
+  for(let i=arr.length-1;i>1;i--){const j=r()%(i+1);sw.push([i,j]);const t=arr[i];arr[i]=arr[j];arr[j]=t;}
+  return sw;}
+function scUnshuffle(arr,seed){const r=scRng(seed),sw=[];
+  for(let i=arr.length-1;i>1;i--){const j=r()%(i+1);sw.push([i,j]);}
+  for(let k=sw.length-1;k>=0;k--){const[i,j]=sw[k];const t=arr[i];arr[i]=arr[j];arr[j]=t;}
+  return arr;}
+/* unicode disguise: base64 alphabet → U+E000 Private Use Area */
+const SC_AL="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+function scToPUA(s){let o="";for(const c of s){const i=SC_AL.indexOf(c);o+=String.fromCharCode(0xE000+(i<0?64:i));}return o;}
+function scFromPUA(s){let o="";for(const ch of s){const c=ch.charCodeAt(0)-0xE000;o+=(c>=0&&c<SC_AL.length)?SC_AL[c]:"=";}return o;}
+/* ══ ENCRYPT ══ */
+function scEncrypt(html,pw,rounds){
+  rounds=rounds||6000;
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(16));
+  const key=scKdf(pw,salt,rounds);
+  const ct=scXor(key,iv,scT.encode(html));
+  const raw=scConcat(iv,scTag(key,ct),ct);
+  let b=scB64(raw);
+  const arr=b.split("");
+  scShuffle(arr,scSeed(pw+scB64(salt)+"mix"));
+  return {p:scToPUA(arr.join("")),s:scB64(salt),r:rounds};}
+/* ══ DECRYPT ══ */
+function scDecrypt(p,s,r,pw){
+  const arr=scFromPUA(p).split("");
+  scUnshuffle(arr,scSeed(pw+s+"mix"));
+  const raw=scUnb64(arr.join(""));
+  if(raw.length<32)throw new Error("BAD");
+  const iv=raw.slice(0,16),tag=raw.slice(16,32),ct=raw.slice(32);
+  const key=scKdf(pw,scUnb64(s),r);
+  const t2=scTag(key,ct);
+  for(let i=0;i<16;i++)if(tag[i]!==t2[i])throw new Error("BAD");
+  return scTD.decode(scXor(key,iv,ct));}
+//==CORE_END==
+/* core source ko output page me inline karne ke liye capture */
+let CORE_SRC="";
+{const t=document.scripts[0]?document.scripts[0].textContent:"";
+ const a=t.indexOf("//==CORE_START=="),e=t.indexOf("//==CORE_END==");
+ if(a>=0&&e>a)CORE_SRC=t.slice(a,e+"//==CORE_END==".length);}
+
+/* ═════════ UI ═════════ */
+function showTab(t){
+  document.getElementById('tabE').classList.toggle('on',t==='E');
+  document.getElementById('tabD').classList.toggle('on',t==='D');
+  document.getElementById('paneE').classList.toggle('hidden',t!=='E');
+  document.getElementById('paneD').classList.toggle('hidden',t!=='D');}
+function meta(id,el){document.getElementById(id).textContent=(el.value.length)+' chars';}
+document.getElementById('src').addEventListener('input',()=>meta('srcMeta',src));
+document.getElementById('enc').addEventListener('input',()=>meta('encMeta',enc));
+document.getElementById('encIn').addEventListener('input',()=>meta('encInMeta',encIn));
+document.getElementById('dec').addEventListener('input',()=>meta('decMeta',dec));
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){
+    e.preventDefault();
+    if(!document.getElementById('paneE').classList.contains('hidden'))runEnc();
+    else runDec();}});
+function loadFile(inp,target){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{const el=document.getElementById(target||'src');el.value=r.result;
+    el.dispatchEvent(new Event('input'));
+    const st=document.getElementById(target==='encIn'?'stD':'stE');
+    st.className='status good';st.textContent='loaded: '+f.name;};
+  r.readAsText(f);inp.value='';}
+function copyOut(id,btn){
+  const el=document.getElementById(id);
+  if(!el.value){return;}
+  const done=()=>{const o=btn.textContent;btn.textContent='✅ Copied!';btn.classList.add('ok');
+    setTimeout(()=>{btn.textContent=o;btn.classList.remove('ok');},1400);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(el.value).then(done).catch(()=>fallback());}
+  else fallback();
+  function fallback(){el.select();document.execCommand('copy');done();}}
+function downloadOut(id,name){
+  const v=document.getElementById(id).value;
+  if(!v)return;
+  const b=new Blob([v],{type:'text/html'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+function runEnc(){
+  const src=document.getElementById('src'),pw=document.getElementById('pwE'),
+        out=document.getElementById('enc'),st=document.getElementById('stE');
+  if(!src.value.trim()){st.className='status bad';st.textContent='pehle HTML paste/upload karo';src.focus();return;}
+  if(!pw.value){st.className='status bad';st.textContent='password dalo!';pw.focus();return;}
+  st.className='status busy';st.textContent='encrypting…';
+  setTimeout(()=>{
+    try{
+      const r=scEncrypt(src.value,pw.value,6000);
+      const page=`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>🔒 Locked — SHADOW CIPHER</title>
+<style>
+body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+background:radial-gradient(800px 400px at 70% 10%,#1c0f33,#0a0a12);color:#e8e8f2;
+font-family:ui-monospace,Menlo,Consolas,monospace}
+.card{background:#12121f;border:1px solid #23233a;border-radius:16px;padding:34px 30px;width:330px;
+box-shadow:0 20px 60px #0009;text-align:center}
+h1{font-size:17px;letter-spacing:3px;margin-bottom:4px;
+background:linear-gradient(90deg,#ff2fd6,#22e0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:#8a8aa8;font-size:12px;margin-bottom:22px}
+input{width:100%;box-sizing:border-box;background:#0a0a14;border:1px solid #23233a;color:#e8e8f2;
+padding:13px;border-radius:10px;font:inherit;font-size:15px;outline:none;text-align:center}
+input:focus{border-color:#ff2fd6}
+button{width:100%;margin-top:14px;padding:13px;border:none;border-radius:10px;cursor:pointer;
+font:inherit;font-weight:800;letter-spacing:1px;color:#fff;
+background:linear-gradient(90deg,#ff2fd6,#b400ff)}
+.err{color:#ff5470;font-size:13px;height:18px;margin-top:12px}
+.shake{animation:s .4s}@keyframes s{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.foot{color:#55557a;font-size:10px;margin-top:18px;letter-spacing:1px}
+</style></head><body>
+<div class="card" id="c">
+<h1>SHADOW CIPHER</h1><div class="sub">🔒 this HTML is password-locked</div>
+<input type="password" id="p" placeholder="password…" autofocus>
+<button onclick="go()">UNLOCK</button>
+<div class="err" id="e"></div>
+<div class="foot">encrypted offline · SHADOW CIPHER</div>
+</div>
+<script>
+const P=${JSON.stringify(r.p)},S=${JSON.stringify(r.s)},R=${r.r};
+${CORE_SRC}
+document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')go();});
+function go(){
+  const pw=document.getElementById('p').value;
+  const e=document.getElementById('e');
+  if(!pw){e.textContent='password dalo';return;}
+  try{
+    const html=scDecrypt(P,S,R,pw);
+    document.open();document.write(html);document.close();
+  }catch(err){
+    e.textContent='✗ galat password ya damaged file';
+    const c=document.getElementById('c');c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake');
+    document.getElementById('p').select();
+  }}
+<\/script></body></html>`;
+      out.value=page;
+      out.dispatchEvent(new Event('input'));
+      st.className='status good';
+      st.textContent='✅ done! Output ek self-decoding HTML hai — browser me kholo, password mango, page khul jayega. Download karke de do.';
+    }catch(ex){st.className='status bad';st.textContent='error: '+ex.message;}
+  },30);}
+function runDec(){
+  const inp=document.getElementById('encIn'),pw=document.getElementById('pwD'),
+        out=document.getElementById('dec'),st=document.getElementById('stD');
+  if(!inp.value.trim()){st.className='status bad';st.textContent='encrypted HTML paste/upload karo';return;}
+  if(!pw.value){st.className='status bad';st.textContent='password dalo!';pw.focus();return;}
+  st.className='status busy';st.textContent='decrypting…';
+  setTimeout(()=>{
+    try{
+      const t=inp.value;
+      const mp=t.match(/const\s+P="([^"]*)"/),ms=t.match(/const\s+S="([^"]*)"/),mr=t.match(/const\s+R=(\d+)/);
+      if(!mp||!ms||!mr){
+        st.className='status bad';
+        st.textContent='❌ ye SHADOW CIPHER encrypted file nahi lagti (markers nahi mile)';return;}
+      const html=scDecrypt(mp[1],ms[1],parseInt(mr[1],10),pw.value);
+      out.value=html;
+      out.dispatchEvent(new Event('input'));
+      st.className='status good';
+      st.textContent='✅ original HTML mil gaya — Copy ya Download karo.';
+    }catch(ex){
+      st.className='status bad';
+      st.textContent='✗ galat password (ya file damage hai)';}
+  },30);}
+</script>
+</body>
+</html>
