@@ -67,7 +67,7 @@
       <span class="badge">● RUNS OFFLINE</span>
       <span class="badge">● ZERO TELEMETRY</span>
     </div>
-    <div class="tag">Apna HTML lock karo — password se encrypt, browser me hi. Decrypt bhi yahin. Koi data kahin nahi jaata.</div>
+    <div class="tag">Apna HTML lock karo — password OPTIONAL: chhodo toh file bina password khulti hai. Decrypt bhi yahin. Koi data kahin nahi jaata.</div>
   </header>
 
   <div class="tabs">
@@ -133,12 +133,12 @@
         <input type="password" id="pwD" placeholder="Password (auto files me khaali chhodo)" onkeydown="if(event.key==='Enter')runDec()">
         <button class="primary" onclick="runDec()">🔓 DECRYPT &nbsp;⌘/Ctrl+↵</button>
       </div>
-      <div class="status" id="stD">encrypted file paste karo + password → original HTML wapas</div>
+      <div class="status" id="stD">encrypted.html paste/upload karo (Upload button best) + password khaali chhodo → original HTML wapas</div>
     </div>
   </div>
 
   <footer>
-    <b>SHADOW CIPHER v1.1</b> — XOR stream + PBKDF (SHA-256) + seeded shuffle + unicode disguise<br>
+    <b>SHADOW CIPHER v1.2</b> — XOR stream + PBKDF (SHA-256) + seeded shuffle + unicode disguise<br>
     Pure client-side · koi server nahi · koi analytics nahi · sab kuch aapke browser me
   </footer>
 </div>
@@ -329,12 +329,11 @@ document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')g
 function go(){
   const pw=document.getElementById('p').value;
   const e=document.getElementById('e');
-  if(!pw){e.textContent='password dalo';return;}
   try{
     const html=scDecrypt(P,S,R,pw);
     document.open();document.write(html);document.close();
   }catch(err){
-    e.textContent='✗ galat password ya damaged file';
+    e.textContent=pw?'✗ galat password ya damaged file':'✗ password dalo (ya file damaged hai)';
     const c=document.getElementById('c');c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake');
     document.getElementById('p').select();
   }}}
@@ -351,17 +350,21 @@ function runDec(){
   const inp=document.getElementById('encIn'),pw=document.getElementById('pwD'),
         out=document.getElementById('dec'),st=document.getElementById('stD');
   if(!inp.value.trim()){st.className='status bad';st.textContent='encrypted HTML paste/upload karo';return;}
-  const t=inp.value;
+  const t=inp.value.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'").replace(/[\u200B\u200C\u200D\uFEFF]/g,'');
   const mp=t.match(/const\s+P=("[^"]*"),S=("[^"]*"),R=(\d+)/);
   const mm=t.match(/const\s+M=([01])/);
   if(!mp){
     st.className='status bad';
-    st.textContent='❌ ye SHADOW CIPHER ka ENCRYPTED output nahi hai — DECRYPT me woh file dalo jo ENCRYPT se mili (encrypted.html), source/smali paste nahi';
+    if(/<\s*!doctype|<\s*html|<\s*body|<\s*div|<\s*script|<\s*head/i.test(t))
+      st.textContent='\u274C yeh PLAIN HTML/source hai \u2014 ENCRYPT tab me dalo. DECRYPT me sirf woh encrypted.html aata hai jo ENCRYPT se mili.';
+    else if(t.trim().length>200&&!/\s/.test(t.trim().slice(0,2000)))
+      st.textContent='\u274C yeh poora encrypted.html nahi lagta (sirf data jaisa). Upload button se poora encrypted.html FILE dalo \u2014 copy-paste me file kharab ho sakti hai.';
+    else
+      st.textContent='\u274C ye SHADOW CIPHER ka ENCRYPTED output nahi hai \u2014 DECRYPT me woh file dalo jo ENCRYPT se mili (encrypted.html), source/smali paste nahi';
     return;}
-  const mode=mm?parseInt(mm[1],10):1;
+  const mode=mm?parseInt(mm[1],10):-1;
   const usePw=mode===0?'':pw.value;
-  if(mode===1&&!pw.value){st.className='status bad';st.textContent='ye password-locked file hai — password dalo!';pw.focus();return;}
-  st.className='status busy';st.textContent=mode===0?'decoding (auto — password nahi chahiye)…':'decrypting…';
+  st.className='status busy';st.textContent=mode===0?'decoding (auto \u2014 password nahi chahiye)\u2026':'decrypting\u2026';
   setTimeout(()=>{
     try{
       const P=JSON.parse(mp[1]),S=JSON.parse(mp[2]);
@@ -370,11 +373,19 @@ function runDec(){
       out.dispatchEvent(new Event('input'));
       st.className='status good';
       st.textContent=mode===0
-        ?'✅ original HTML mil gaya (auto file — password ki zarurat nahi) — Copy ya Download karo.'
-        :'✅ original HTML mil gaya — Copy ya Download karo.';
+        ?'\u2705 original HTML mil gaya (auto file \u2014 password ki zarurat nahi) \u2014 Copy ya Download karo.'
+        :(!pw.value
+          ?'\u2705 original HTML mil gaya \u2014 bina password ke khul gayi! Copy ya Download karo.'
+          :'\u2705 original HTML mil gaya \u2014 Copy ya Download karo.');
     }catch(ex){
       st.className='status bad';
-      st.textContent='✗ galat password (ya file damage hai)';}
+      if(!pw.value&&mode===0)
+        st.textContent='\u2717 auto file hai \u2014 bina password khulni chahiye thi; fail = file damage hai';
+      else if(!pw.value)
+        st.textContent='\u2717 ye password-locked file hai \u2014 password dalo!';
+      else
+        st.textContent='\u2717 galat password (ya file damage hai)';
+      if(!pw.value&&mode!==0)pw.focus();}
   },30);}
 </script>
 </body>
