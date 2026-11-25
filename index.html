@@ -99,10 +99,10 @@
     </div>
     <div class="panel" style="margin-top:14px">
       <div class="row" style="margin-top:0">
-        <input type="password" id="pwE" placeholder="Password (yaad rakho — bhool gaye to HTML wapas nahi)" onkeydown="if(event.key==='Enter')runEnc()">
+        <input type="password" id="pwE" placeholder="Password OPTIONAL — khaali chhodo = bina password khulegi" onkeydown="if(event.key==='Enter')runEnc()">
         <button class="primary" onclick="runEnc()">⚡ RUN ENCRYPTION &nbsp;⌘/Ctrl+↵</button>
       </div>
-      <div class="status" id="stE">password dalo aur Run karo — output ek aisa HTML banega jo sirf sahi password se khulega</div>
+      <div class="status" id="stE">password dalo (lock chahiye to) YA khaali chhodo (AUTO mode — file bina password khulegi)</div>
     </div>
   </div>
 
@@ -130,7 +130,7 @@
     </div>
     <div class="panel" style="margin-top:14px">
       <div class="row" style="margin-top:0">
-        <input type="password" id="pwD" placeholder="Wahi password jo encrypt me tha" onkeydown="if(event.key==='Enter')runDec()">
+        <input type="password" id="pwD" placeholder="Password (auto files me khaali chhodo)" onkeydown="if(event.key==='Enter')runDec()">
         <button class="primary" onclick="runDec()">🔓 DECRYPT &nbsp;⌘/Ctrl+↵</button>
       </div>
       <div class="status" id="stD">encrypted file paste karo + password → original HTML wapas</div>
@@ -138,7 +138,7 @@
   </div>
 
   <footer>
-    <b>SHADOW CIPHER v1.0</b> — XOR stream + PBKDF (SHA-256) + seeded shuffle + unicode disguise<br>
+    <b>SHADOW CIPHER v1.1</b> — XOR stream + PBKDF (SHA-256) + seeded shuffle + unicode disguise<br>
     Pure client-side · koi server nahi · koi analytics nahi · sab kuch aapke browser me
   </footer>
 </div>
@@ -282,8 +282,9 @@ function runEnc(){
   const src=document.getElementById('src'),pw=document.getElementById('pwE'),
         out=document.getElementById('enc'),st=document.getElementById('stE');
   if(!src.value.trim()){st.className='status bad';st.textContent='pehle HTML paste/upload karo';src.focus();return;}
-  if(!pw.value){st.className='status bad';st.textContent='password dalo!';pw.focus();return;}
-  st.className='status busy';st.textContent='encrypting…';
+  const mode=pw.value?1:0;
+  st.className='status busy';
+  st.textContent=mode?'encrypting (password lock)…':'encrypting (AUTO mode — bina password khulegi)…';
   setTimeout(()=>{
     try{
       const r=scEncrypt(src.value,pw.value,6000);
@@ -317,7 +318,13 @@ background:linear-gradient(90deg,#ff2fd6,#b400ff)}
 </div>
 <script>
 const P=${JSON.stringify(r.p)},S=${JSON.stringify(r.s)},R=${r.r};
+const M=${mode};
 ${CORE_SRC}
+if(M===0){
+  try{const html=scDecrypt(P,S,R,"");document.open();document.write(html);document.close();}
+  catch(err){document.title="decode failed";
+    document.body.innerHTML='<div style="font-family:monospace;color:#ff5470;text-align:center;margin-top:40vh">✗ decode failed — damaged file</div>';}
+}else{
 document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')go();});
 function go(){
   const pw=document.getElementById('p').value;
@@ -330,32 +337,41 @@ function go(){
     e.textContent='✗ galat password ya damaged file';
     const c=document.getElementById('c');c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake');
     document.getElementById('p').select();
-  }}
+  }}}
 <\/script></body></html>`;
       out.value=page;
       out.dispatchEvent(new Event('input'));
       st.className='status good';
-      st.textContent='✅ done! Output ek self-decoding HTML hai — browser me kholo, password mango, page khul jayega. Download karke de do.';
+      st.textContent=mode
+        ?'✅ done! Output lock-screen hai — browser me kholo, password dalte hi page khulega.'
+        :'✅ done! AUTO mode — output file browser me kholate HI page khulega (koi password nahi). ⚠️ secrecy nahi, sirf chhupana.';
     }catch(ex){st.className='status bad';st.textContent='error: '+ex.message;}
   },30);}
 function runDec(){
   const inp=document.getElementById('encIn'),pw=document.getElementById('pwD'),
         out=document.getElementById('dec'),st=document.getElementById('stD');
   if(!inp.value.trim()){st.className='status bad';st.textContent='encrypted HTML paste/upload karo';return;}
-  if(!pw.value){st.className='status bad';st.textContent='password dalo!';pw.focus();return;}
-  st.className='status busy';st.textContent='decrypting…';
+  const t=inp.value;
+  const mp=t.match(/const\s+P=("[^"]*"),S=("[^"]*"),R=(\d+)/);
+  const mm=t.match(/const\s+M=([01])/);
+  if(!mp){
+    st.className='status bad';
+    st.textContent='❌ ye SHADOW CIPHER ka ENCRYPTED output nahi hai — DECRYPT me woh file dalo jo ENCRYPT se mili (encrypted.html), source/smali paste nahi';
+    return;}
+  const mode=mm?parseInt(mm[1],10):1;
+  const usePw=mode===0?'':pw.value;
+  if(mode===1&&!pw.value){st.className='status bad';st.textContent='ye password-locked file hai — password dalo!';pw.focus();return;}
+  st.className='status busy';st.textContent=mode===0?'decoding (auto — password nahi chahiye)…':'decrypting…';
   setTimeout(()=>{
     try{
-      const t=inp.value;
-      const mp=t.match(/const\s+P="([^"]*)"/),ms=t.match(/const\s+S="([^"]*)"/),mr=t.match(/const\s+R=(\d+)/);
-      if(!mp||!ms||!mr){
-        st.className='status bad';
-        st.textContent='❌ ye SHADOW CIPHER encrypted file nahi lagti (markers nahi mile)';return;}
-      const html=scDecrypt(mp[1],ms[1],parseInt(mr[1],10),pw.value);
+      const P=JSON.parse(mp[1]),S=JSON.parse(mp[2]);
+      const html=scDecrypt(P,S,parseInt(mp[3],10),usePw);
       out.value=html;
       out.dispatchEvent(new Event('input'));
       st.className='status good';
-      st.textContent='✅ original HTML mil gaya — Copy ya Download karo.';
+      st.textContent=mode===0
+        ?'✅ original HTML mil gaya (auto file — password ki zarurat nahi) — Copy ya Download karo.'
+        :'✅ original HTML mil gaya — Copy ya Download karo.';
     }catch(ex){
       st.className='status bad';
       st.textContent='✗ galat password (ya file damage hai)';}
